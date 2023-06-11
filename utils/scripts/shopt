@@ -1,0 +1,8 @@
+#! /bin/bash
+
+#This script allows you to use the 'shopt' command in zsh (or other bash like shells).
+#To use this, simply add the 'shopt' script to a location on your $PATH
+#(I suggest /usr/bin) or add the following line to your .zshrc
+#alias shopt='/path/to/shopt'
+
+shopt $*

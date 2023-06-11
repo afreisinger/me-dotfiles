@@ -1,0 +1,134 @@
+#export DEBUG=1
+source $HOME/.bash.d/core_utils # clearly not portable across shells, but should be easy to port
+timer_start_if_unset
+t_debug "bashrc PATH=$PATH"
+#set -x
+# To enable debug printing, just set the DEBUG environment variable
+# You can then use `debug` or `t_debug` statements to echo debug info
+
+# short circuit the sourcing for non-interactive shells
+# http://superuser.com/questions/183870/difference-between-bashrc-and-bash-profile
+[[ $- != *i* ]] && return
+
+################################################################################
+# Prolog start
+#
+# These timer_* functions rely on a utility called `millis`
+# @see https://gist.github.com/fatso83/86e94e91926d1311f3fa
+################################################################################
+
+# To debug how long init takes, run "DEBUG=1 source-rc"
+
+t_debug Executing '$HOME'/.bashrc
+
+################################################################################
+# Prolog finished
+################################################################################
+
+declare -x CLICOLOR
+ulimit -c unlimited
+umask 022
+
+function read_config {
+  if [ -a "$1" ]; then
+      . "$1"
+  else echo Missing $1
+  fi
+}
+
+function read_config_if_exists {
+  [ -e "$1" ] && . "$1" && t_debug Read $1
+}
+
+# Needed for the utility function "restore_path"
+if [ -z "${ORIGINAL_PATH}" ]; then
+        ORIGINAL_PATH="${PATH}"
+fi
+
+t_debug "Reading utility functions and aliases"
+read_config "$HOME/.bash.d/bash_aliases_functions"
+
+t_debug "Reading utils for git prompt"
+read_config "$HOME/.bash.d/git-prompt.sh"
+
+t_debug "Reading bash completion files"
+for f in "${HOME}"/.bash_completion.d/*; do
+    t_debug $f
+    read_config "$f"
+done
+
+t_debug Reading color codes
+read_config_if_exists "$HOME/.bash.d/colors"
+
+
+#Se man bash i delen som heter "Prompting"
+set_prompt(){
+    local user=$(green "\u")
+    local host=$(dark_yellow "\h")
+    local workdir=$(pink "\w")
+    local gitbranch=$(dark_red \$\(__git_ps1  "\(%s\)" \))
+    local at=$(dark_grey at)
+    local in=$(dark_grey in)
+    export PS1="\n${user} ${at} ${host} ${in} ${workdir} ${gitbranch}"$'\n\$ '
+}
+
+# Now set it. If any of these colors are later overridden, then just rerun `set_prompt`
+set_prompt
+
+# Start ssh-agent
+# This somehow started failing on OS X at some time, as `ssh-add -l`
+# never exits with status 2, always 1
+# The fix on OS X is simply to add the keys using the keychain like this: `ssh-add -K`
+# Unsafe on shared machines: http://rabexc.org/posts/pitfalls-of-ssh-agents
+ssh-add -l &>/dev/null
+if [ "$?" == 2 ]; then
+  test -r ~/.ssh-agent && \
+    eval "$(<~/.ssh-agent)" >/dev/null
+
+  ssh-add -l &>/dev/null
+  if [ "$?" == 2 ]; then
+    (umask 066; ssh-agent > ~/.ssh-agent)
+    eval "$(<~/.ssh-agent)" >/dev/null
+    ssh-add
+  fi
+fi
+
+
+# From http://stackoverflow.com/questions/9457233/unlimited-bash-history
+# Eternal bash history.
+# ---------------------
+# Undocumented feature which sets the size to "unlimited".
+# http://stackoverflow.com/questions/9457233/unlimited-bash-history
+export HISTFILESIZE=
+export HISTSIZE=
+export HISTTIMEFORMAT="[%F %T] "
+# Change the file location because certain bash sessions truncate .bash_history file upon close.
+# http://superuser.com/questions/575479/bash-history-truncated-to-500-lines-on-each-login
+export HISTFILE=~/.bash_eternal_history
+# Force prompt to write history after every command.
+# http://superuser.com/questions/20900/bash-history-loss
+PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
+
+# Disable per-session history file on OSX
+# https://stackoverflow.com/questions/32418438/how-can-i-disable-bash-sessions-in-os-x-el-capitan
+SHELL_SESSION_HISTORY=0
+
+export HISTCONTROL=ignoredups
+
+# Z utility :-)
+#read_config_if_exists "$HOME/.zplug/repos/rupa/z/z.sh"
+read_config_if_exists "$HOME/bin/z.sh"
+
+t_debug "Reading local settings for this machine"
+# This needs to be at the bottom to be able to override earlier settings/variables/functions
+read_config_if_exists "$HOME/.bashrc.local"
+
+if command -v direnv &> /dev/null; then
+    eval "$(direnv hook bash)"
+else
+    echo "This setup is missing 'direnv'. Please install it for per-directory overrides"
+fi
+t_debug Finished bash setup
+
+# Read environment variables, such as sauce labs keys
+read_config_if_exists "$HOME/.secret"

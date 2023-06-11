@@ -1,0 +1,32 @@
+# To debug how long init takes, run "DEBUG=1 source-rc"
+function t_debug() {
+        if [[ x == ${DEBUG+x} ]]; then echo [$(timer_now)] $@ >&2; fi
+}
+function debug() {
+        if [[ x == ${DEBUG+x} ]]; then echo $@ >&2; fi
+}
+
+function timer_start(){
+    __timer=$(millis)
+}
+function timer_start_if_unset(){
+    if [[ x$__timer == x ]]; then
+        debug Timer was unset. Initializing timer.
+        timer_start
+    fi
+}
+function timer_now(){
+    if [[ x$__timer == x ]]; then
+        echo "Timer is unset. Use timer_start"
+        return 1
+    fi
+
+    local diff;
+    local now=$(millis)
+    let diff=$now-$__timer
+    echo $diff
+}
+
+debug "core utils setup finished"
+
+# vi: ft=sh

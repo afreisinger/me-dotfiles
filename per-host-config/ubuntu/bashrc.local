@@ -1,0 +1,88 @@
+# vi: ft=sh
+
+#See man bash: "Prompting"
+t_debug "Load personalized bashrc for Ubuntu dev machine"
+
+#source /usr/local/etc/autojump.bash
+
+if [ -e ~/.tlf ]; then
+    source ~/.tlf # phone numbers
+fi
+
+alias ls="/bin/ls $IGNORE --color  --group-directories-first "
+alias vim='nvim'
+alias pip='python3 -m pip'
+
+# makes the usual 'open' command from osx work in linux as well
+# Defining it as a function overwrites the `open` definition used in other functions,
+# unlike the alias definition which expands at function definition.
+# @see https://askubuntu.com/questions/1123186/how-can-i-use-an-alias-in-a-function/1123188#1123188
+function open() { xdg-open $@; }; 
+
+# Make Ctrl-S work again (incremental search forwards)
+# http://stackoverflow.com/questions/791765/unable-to-forward-search-bash-history-similarly-as-with-ctrl-r
+stty -ixon
+
+alias iso8601='date -u +"%Y-%m-%dT%H:%M:%SZ"'
+alias iso8601-local='date +"%Y-%m-%dT%H:%M:%S%z"'
+alias iso8601-date='date +"%Y-%m-%d"'
+
+alias pbcopy='text.remove-last-newline | xclip -selection clipboard'
+alias pbpaste='xclip -selection clipboard -o'
+alias emojis='open https://www.webpagefx.com/tools/emoji-cheat-sheet/ &>/dev/null'
+
+# busy / open-for-busines
+alias luxafor-cli='sudo luxafor-cli'
+alias busy='luxafor-cli -c red'
+alias bugme='luxafor-cli -c off'
+
+alias uuid='uuid | pbcopy; pbpaste'
+alias tmux="tmux -S /tmp/persisted-tmux "
+
+alias psql=pgcli
+
+# Open JIRA issues: `nim 434` opens NIM-434 in the browser
+function nim() { xdg-open http://diffia.atlassian.net/browse/NIM-$1;  }
+
+function encrypt(){
+    openssl enc -aes-256-cbc -a -salt "$@"
+}
+
+function decrypt(){
+    openssl enc -d -aes-256-cbc -a "$@"
+}
+
+t_debug "Setup 'fuck' 🥳 "
+eval "$(thefuck --alias)"
+
+if is_wsl; then
+    t_debug "Custom setup for WSL Ubuntu"
+    
+    WINHOME=/mnt/c/Users/carl-
+    alias win-powershell='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+    alias win-home="cd $WINHOME"
+    alias pbcopy="clip.exe"
+    alias pbpaste="win32yank.exe -o"
+
+    # Add a /etc/hosts entry for 'host' so that you can connect to say a database running in Windows
+    function add_wsl_host(){
+    cat /etc/hosts | \
+        grep 172.; test $? -eq 0 && $1 || \
+        echo -e "$(grep nameserver /etc/resolv.conf | awk '{print $2, " host"}')\n$(cat /etc/hosts)" | \
+        sudo tee /etc/hosts
+    }
+fi
+
+# For Remote Mob programming on Nimble where develop is the base branch, not master
+# https://github.com/remotemobprogramming/mob/blob/master/mob.go
+export MOB_BASE_BRANCH=develop
+
+export GOPATH=$HOME/go
+export PATH="$GOPATH/bin:$HOME/.local/bin:$HOME/bin/Telegram:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="/home/carlerik/.sdkman"
+[[ -s "/home/carlerik/.sdkman/bin/sdkman-init.sh" ]] && source "/home/carlerik/.sdkman/bin/sdkman-init.sh"
